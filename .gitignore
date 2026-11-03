@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Saídas do pipeline
+mirror_output/
+.chats/
+*.log
+
+# Configuração local / cofre antigo
+*.enc
+.mirror_config/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp

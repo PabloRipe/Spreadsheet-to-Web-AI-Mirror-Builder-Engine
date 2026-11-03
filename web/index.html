@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spreadsheet Mirror Engine</title>
+  <meta name="description" content="Preencha planilhas .xlsx clonadas e gere o arquivo final com fórmulas e estilos preservados.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M8 10h16v12H8z' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='M8 14h16M14 10v12' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body class="h-full bg-slate-100 text-slate-800 antialiased">
+  <div id="app" class="flex min-h-full flex-col">
+    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+      <div class="mx-auto flex w-full max-w-[1800px] flex-wrap items-center gap-3 px-4 py-3">
+        <div class="flex items-center gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>
+            </svg>
+          </div>
+          <div class="leading-tight">
+            <h1 class="text-base font-semibold text-slate-900 sm:text-lg">Spreadsheet Mirror</h1>
+            <p class="text-[11px] text-slate-500 sm:text-xs">Preencha o espelho e gere o .xlsx final</p>
+          </div>
+        </div>
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+          <label for="project-select" class="sr-only">Projeto</label>
+          <select id="project-select" class="h-9 min-w-[11rem] max-w-[20rem] rounded-lg border border-slate-300 bg-white px-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+            <option value="">Nenhum projeto</option>
+          </select>
+          <button id="refresh-projects" type="button" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200" title="Atualizar lista de projetos">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 1 1-3-6.7"></path>
+              <path d="M21 3v6h-6"></path>
+            </svg>
+            <span class="hidden sm:inline">Atualizar</span>
+          </button>
+          <button id="upload-button" type="button" class="inline-flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300" title="Enviar uma planilha .xlsx">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 16V4"></path>
+              <path d="m7 9 5-5 5 5"></path>
+              <path d="M4 20h16"></path>
+            </svg>
+            <span>Enviar planilha</span>
+          </button>
+          <button id="llm-settings-button" type="button" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-200" title="Configurar provedor de IA">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.2.62.78 1.02 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span class="hidden sm:inline">IA</span>
+          </button>
+          <button id="chat-toggle-button" type="button" class="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300" title="Abrir o chat de IA" aria-controls="chat-panel" aria-expanded="false">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Chat IA</span>
+          </button>
+          <button id="export-button" type="button" class="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-300 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500" disabled title="Gerar o arquivo .xlsx final">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 4v12"></path>
+              <path d="m7 11 5 5 5-5"></path>
+              <path d="M4 20h16"></path>
+            </svg>
+            <span>Gerar .xlsx</span>
+          </button>
+        </div>
+      </div>
+      <div class="border-t border-slate-100 bg-slate-50/70">
+        <div class="mx-auto flex w-full max-w-[1800px] flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 text-[11px] text-slate-500">
+          <span id="autosave-indicator" class="inline-flex items-center gap-1">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            <span id="autosave-text">Rascunho salvo automaticamente no navegador.</span>
+          </span>
+          <span id="project-stats"></span>
+          <span id="warnings-summary" class="hidden items-center gap-1 text-amber-700"></span>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto flex w-full max-w-[1800px] flex-1 flex-col px-3 py-3 sm:px-4 sm:py-4">
+      <section id="empty-state" class="hidden flex-1 items-center justify-center">
+        <div id="drop-zone" class="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border-2 border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm transition hover:border-indigo-400 hover:bg-indigo-50/40">
+          <div class="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+            <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M12 12v6"></path>
+              <path d="m9 15 3-3 3 3"></path>
+            </svg>
+          </div>
+          <div class="space-y-1">
+            <h2 class="text-lg font-semibold text-slate-900">Nenhum projeto carregado</h2>
+            <p class="text-sm text-slate-500">
+              Envie uma planilha <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">.xlsx</code> para começar.
+              O processamento clona abas, estilos e fórmulas, deixando as células editáveis em branco.
+            </p>
+          </div>
+          <button id="empty-upload-button" type="button" class="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 16V4"></path>
+              <path d="m7 9 5-5 5 5"></path>
+              <path d="M4 20h16"></path>
+            </svg>
+            Escolher arquivo .xlsx
+          </button>
+          <p class="text-xs text-slate-400">ou arraste e solte o arquivo nesta área</p>
+        </div>
+      </section>
+
+      <section id="workspace" class="hidden min-h-0 flex-1 flex-col gap-3">
+        <div id="warnings-banner" class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <details class="group">
+            <summary class="cursor-pointer select-none font-medium">
+              Avisos do processamento
+              <span id="warnings-count" class="text-amber-700"></span>
+            </summary>
+            <ul id="warnings-list" class="mt-2 list-disc space-y-1 pl-5 text-xs"></ul>
+          </details>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div id="sheet-tabs" class="flex flex-nowrap items-center gap-1 overflow-x-auto pb-1" role="tablist" aria-label="Abas da planilha"></div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="sheet-info" class="text-[11px] text-slate-500"></span>
+            <button id="clear-sheet" type="button" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50" title="Limpar os valores preenchidos nesta aba" disabled>
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 6h18"></path>
+                <path d="M8 6V4h8v2"></path>
+                <path d="M19 6l-1 14H6L5 6"></path>
+                <path d="M10 11v5M14 11v5"></path>
+              </svg>
+              Limpar aba
+            </button>
+          </div>
+        </div>
+
+        <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div id="grid-scroll" class="min-h-0 flex-1 overflow-auto">
+            <table id="spreadsheet" class="spreadsheet-table" aria-label="Grade da planilha"></table>
+          </div>
+          <div id="grid-empty" class="hidden items-center justify-center p-10 text-sm text-slate-500">Nenhuma célula para exibir nesta aba.</div>
+        </div>
+        <p class="text-[11px] text-slate-400">As fórmulas são preservadas no arquivo final e recalculadas quando você abrir o .xlsx no Excel.</p>
+      </section>
+    </main>
+  </div>
+
+  <input id="file-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden">
+
+  <aside id="chat-panel" class="hidden fixed inset-y-0 right-0 z-[45] w-[min(100vw,30rem)] flex-col border-l border-slate-200 bg-white shadow-2xl" role="dialog" aria-labelledby="chat-title" aria-hidden="true">
+    <div class="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+      <div class="min-w-0 flex-1">
+        <h2 id="chat-title" class="truncate text-sm font-semibold text-slate-900">Chat de IA</h2>
+        <p id="chat-provider-badge" class="truncate text-[11px] text-slate-500">Provedor não configurado</p>
+      </div>
+      <button id="chat-clear-history" type="button" class="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white px-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50" title="Limpar histórico deste projeto">Limpar</button>
+      <button id="chat-close" type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Fechar chat">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+      </button>
+    </div>
+
+    <div class="space-y-2 border-b border-slate-100 px-4 py-2">
+      <div class="flex rounded-lg bg-slate-100 p-1 text-xs font-medium" role="tablist" aria-label="Modo do chat">
+        <button id="chat-mode-edit" type="button" role="tab" aria-selected="true" class="flex-1 rounded-md px-2 py-1.5 text-slate-700 transition">Editar planilha</button>
+        <button id="chat-mode-create" type="button" role="tab" aria-selected="false" class="flex-1 rounded-md px-2 py-1.5 text-slate-500 transition">Criar do zero</button>
+      </div>
+      <div id="chat-context-row" class="flex items-center gap-2">
+        <label for="chat-context-mode" class="sr-only">Contexto enviado à IA</label>
+        <select id="chat-context-mode" class="h-8 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-xs text-slate-700">
+          <option value="sheet">Aba atual</option>
+          <option value="selection">Seleção</option>
+          <option value="project">Projeto inteiro</option>
+        </select>
+        <input id="chat-selection" type="text" placeholder="Ex.: A1:C10" class="hidden h-8 min-w-0 flex-1 rounded-lg border border-slate-300 px-2 text-xs" aria-label="Intervalo da seleção">
+      </div>
+    </div>
+
+    <div id="chat-messages" class="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50/60 px-4 py-3" aria-live="polite">
+      <p id="chat-empty" class="rounded-xl border border-dashed border-slate-300 bg-white px-3 py-4 text-xs text-slate-500">
+        Configure um provedor em <strong>IA</strong> e peça alterações na planilha atual ou descreva uma planilha nova.
+      </p>
+    </div>
+
+    <div class="border-t border-slate-200 bg-white px-3 py-3">
+      <div id="chat-status" class="mb-2 hidden rounded-lg px-2 py-1 text-[11px]" role="status"></div>
+      <label for="chat-input" class="sr-only">Mensagem para a IA</label>
+      <textarea id="chat-input" rows="2" class="block w-full resize-none rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200" placeholder="Ex.: preencha a coluna B com os valores da coluna A multiplicados por 2"></textarea>
+      <div class="mt-2 flex items-center justify-between gap-2">
+        <p class="text-[10px] text-slate-400">Edições só são aplicadas após sua confirmação.</p>
+        <button id="chat-send" type="button" class="inline-flex h-9 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
+          <span id="chat-send-label">Enviar</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div id="llm-settings-modal" class="hidden fixed inset-0 z-[60] items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true" aria-labelledby="llm-settings-title">
+    <div class="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 id="llm-settings-title" class="text-base font-semibold text-slate-900">Configurar provedor de IA</h2>
+          <p class="mt-1 text-xs text-slate-500">A chave fica apenas no <code class="rounded bg-slate-100 px-1">sessionStorage</code> desta aba e é enviada somente para a API local que você está executando.</p>
+        </div>
+        <button id="llm-settings-close" type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100" aria-label="Fechar configurações">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label for="llm-provider" class="mb-1 block text-xs font-medium text-slate-600">Provedor</label>
+          <select id="llm-provider" class="h-9 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm"></select>
+        </div>
+        <div>
+          <label for="llm-model" class="mb-1 block text-xs font-medium text-slate-600">Modelo</label>
+          <input id="llm-model" type="text" list="llm-model-list" class="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm" autocomplete="off" spellcheck="false">
+          <datalist id="llm-model-list"></datalist>
+        </div>
+        <div>
+          <label for="llm-temperature" class="mb-1 block text-xs font-medium text-slate-600">Temperatura</label>
+          <input id="llm-temperature" type="number" min="0" max="2" step="0.1" value="0.2" class="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm">
+        </div>
+        <div class="sm:col-span-2">
+          <label for="llm-base-url" class="mb-1 block text-xs font-medium text-slate-600">URL base</label>
+          <input id="llm-base-url" type="url" class="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm" placeholder="https://..." autocomplete="off" spellcheck="false">
+        </div>
+        <div>
+          <label for="llm-max-tokens" class="mb-1 block text-xs font-medium text-slate-600">Máx. tokens</label>
+          <input id="llm-max-tokens" type="number" min="64" max="32768" step="64" value="2048" class="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm">
+        </div>
+        <div>
+          <label for="llm-api-key" class="mb-1 block text-xs font-medium text-slate-600">Chave de API</label>
+          <input id="llm-api-key" type="password" class="h-9 w-full rounded-lg border border-slate-300 px-2 text-sm" placeholder="Deixe em branco para manter" autocomplete="new-password" spellcheck="false">
+        </div>
+      </div>
+
+      <div id="llm-test-status" class="mt-3 hidden rounded-lg px-3 py-2 text-xs" role="status"></div>
+
+      <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <button id="llm-test-button" type="button" class="inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50">Testar conexão</button>
+        <button id="llm-save-button" type="button" class="inline-flex h-9 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="pointer-events-none fixed bottom-4 right-4 z-[70] flex w-[min(92vw,24rem)] flex-col gap-2"></div>
+  <div id="loading-overlay" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-3 rounded-2xl bg-white px-6 py-5 shadow-xl">
+      <svg class="h-8 w-8 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+      </svg>
+      <p id="loading-message" class="text-sm font-medium text-slate-700">Carregando...</p>
+    </div>
+  </div>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/chat.js" defer></script>
+</body>
+</html>

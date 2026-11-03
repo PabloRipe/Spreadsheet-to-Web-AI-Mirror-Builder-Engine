@@ -1,0 +1,15 @@
+.git
+.gitignore
+.pytest_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+env
+node_modules
+mirror_output
+.DS_Store
+Thumbs.db
+*.log

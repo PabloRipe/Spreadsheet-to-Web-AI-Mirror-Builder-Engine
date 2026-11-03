@@ -1,0 +1,71 @@
+Prompt de Inicialização e Contexto: Spreadsheet-to-Web AI Mirror & Builder Engine (v2.0)
+
+1. Visão Geral do Projeto
+
+Estamos desenvolvendo o Spreadsheet-to-Web AI Mirror & Builder Engine (Repositório: https://github.com/PabloRipe/Spreadsheet-to-Web-Mirror-Engine).
+Trata-se de um framework local open-source ("Clone & Run") que transforma planilhas .xlsx complexas em aplicações web interativas estilizadas com Tailwind CSS, permitindo três pilares fundamentais:
+
+Clonagem e Espelhamento Inteligente: Leitura de planilhas existentes, preservação integral de fórmulas, abas, estilos e fontes, separando dados fixos de editáveis via convenção de cores.
+
+Edição e Auditoria por Chat (Agentic Editing): Janela de chat integrada onde o usuário conversa com um LLM para alterar, preencher em lote ou apagar dados da planilha em tempo real.
+
+Criação do Zero via Prompt (Prompt-to-Sheet): Capacidade de solicitar via chat a criação de uma nova estrutura de planilha completa do zero, que é gerada via IA, convertida em .xlsx com fórmulas reais e renderizada na web instantaneamente.
+
+2. Stack Tecnológica Definida
+
+Backend: Python + openpyxl (para manipulação de planilhas e fórmulas) + gateway unificado ou litellm para gerenciar múltiplos provedores de forma leve.
+
+Frontend: HTML5 / Vanilla JS ultra leve + Tailwind CSS (via CDN) para evitar dependências complexas de build.
+
+Persistência e Segurança: Armazenamento estrito de chaves de API e estado da sessão no sessionStorage do navegador (privacidade total, o servidor local não grava chaves em disco). Sem motores de cálculo front-end pesados (formulajs descartado; o recálculo de fórmulas ocorre nativamente ao abrir o .xlsx final no Excel).
+
+3. Diretrizes de Comportamento da IA (System Prompt & Output Estruturado)
+
+O Agente integrado ao chat deve seguir rigorosamente as seguintes diretrizes operacionais:
+
+Persona: Especialista em engenharia de planilhas, modelagem de dados e automação via openpyxl.
+
+Modo Edição Contextual: Quando o usuário solicitar alterações na planilha atual (cujo JSON de estado é injetado como contexto), a IA deve responder conversacionalmente e obrigatoriamente retornar um bloco estruturado em JSON contendo as ações de modificação de células para que o frontend atualize os inputs na tela:
+
+{
+  "acoes": [
+    {"aba": "NomeAba", "coordenada": "B5", "novo_valor": 1500},
+    {"aba": "NomeAba", "coordenada": "C5", "novo_valor": "=B5*0.1"}
+  ]
+}
+
+
+Modo Criação (Prompt-to-Sheet): Se o usuário solicitar uma planilha do zero, a IA deve estruturar a matriz completa em JSON (com abas, linhas, colunas e fórmulas válidas do Excel) para conversão e salvamento via Python.
+
+4. Provedores de IA Suportados
+
+O usuário poderá selecionar a qualquer momento o seu provedor favorito e inserir sua chave de API diretamente na interface:
+
+Google (Gemini)
+
+OpenAI (GPT)
+
+Anthropic (Claude)
+
+OpenRouter
+
+DeepSeek
+
+Para provedores locais como o Ollama
+
+5. Estado Atual e Ponto de Partida (Fase 2)
+
+O que já foi concluído (Fase 1): Motor base em Python para leitura, clonagem estrutural de abas e estilos, preservação de fórmulas e geração do contrato em JSON para a interface web.
+
+Onde estamos agora: Transição para a Fase 2, focando em:
+
+Criação do modal/painel de configuração de provedores de IA e input seguro de API Key no sessionStorage.
+
+Implementação do construtor dinâmico de System Prompt injetando o JSON da planilha como contexto.
+
+Desenvolvimento da interface de chat e do interpretador de ações em JSON no frontend para atualizar a matriz de inputs em tempo real.
+
+Manutenção e integração do fluxo bidirecional de exportação para .xlsx.
+
+Ler CONTEXT_RESTORE.md, PLAN.md e README.md
+utilizaremos este repositorio vazio para subir o sistema https://github.com/PabloRipe/Spreadsheet-to-Web-AI-Mirror-Builder-Engine
