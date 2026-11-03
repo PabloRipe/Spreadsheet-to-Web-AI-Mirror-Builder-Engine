@@ -127,8 +127,11 @@
     const stored = readStorage(SETTINGS_KEY, {}) || {};
     const ui = readStorage(UI_KEY, {}) || {};
     const meta = providerMeta(stored.provider) || state.providers[0] || null;
+    const providerId = meta && (!stored.provider || stored.provider === meta.id)
+      ? meta.id
+      : (stored.provider && providerMeta(stored.provider) ? stored.provider : ((meta && meta.id) || 'openai'));
     state.settings = {
-      provider: String(stored.provider || (meta && meta.id) || 'openai'),
+      provider: providerId,
       type: String(stored.type || (meta && meta.type) || 'openai'),
       model: String(stored.model || (meta && meta.default_model) || ''),
       base_url: String(stored.base_url || (meta && meta.default_base_url) || ''),
@@ -285,6 +288,10 @@
     const form = readForm();
     if (!form.model) {
       showTestStatus('Informe o modelo do provedor.', 'error');
+      return;
+    }
+    if (!form.base_url) {
+      showTestStatus('Informe a URL base do provedor.', 'error');
       return;
     }
     if (form.requires_key && !form.api_key) {
@@ -605,7 +612,10 @@
         : 'Ex.: crie uma planilha de controle de despesas com categorias, orçamento e total';
     }
     showEmptyChat();
-    if (editActive) loadHistory();
+    if (editActive) {
+      state.historyLoadedFor = null;
+      loadHistory();
+    }
   };
 
   const setContextMode = (mode) => {
