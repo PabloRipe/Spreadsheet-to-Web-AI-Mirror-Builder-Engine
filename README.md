@@ -179,6 +179,12 @@ Regras de segurança do fluxo:
 - O LLM **propõe** alterações; nada é gravado no `.xlsx` sem confirmação.
 - Só células com `editavel: true` podem ser alteradas. Células fixas,
   cabeçalhos, fórmulas e não-âncoras de mesclagem são rejeitados pelo backend.
+- **Nunca chute coordenadas**: o backend executa uma busca estrutural
+  automática pelos termos/coordenadas do pedido e o system prompt obriga o uso de
+  `search_cells`. Cada resultado inclui `campos_editaveis_vizinhos` (direita,
+  abaixo, esquerda, acima), para ligar um rótulo fixo ao campo de valor.
+- Coordenadas que não apareçam no contexto, na busca automática ou em uma tool
+  usada pelo modelo são rejeitadas com `coordenada_nao_verificada`.
 - O histórico por projeto é persistido em `<workspace>/.chats/<slug>.json` e pode
   ser limpo pelo botão **Limpar**.
 
@@ -309,7 +315,7 @@ configuração ou flags da CLI (consulte `spreadsheet_mirror.config.MirrorConfig
 python -m pytest
 ```
 
-Estado atual: **165 testes passando**. Nenhum teste faz chamada de rede real;
+Estado atual: **171 testes passando**. Nenhum teste faz chamada de rede real;
 os provedores usam `httpx.MockTransport` e o chat usa provedor fake.
 
 ---

@@ -203,16 +203,21 @@ Estrutura de alto nível:
    valida contra `mirror.json` (`editavel: true`, refs válidos, mesclagens e
    cabeçalhos) e o frontend só mescla no rascunho após confirmação.
 6. **Ferramentas de leitura + proposta pura**: `read_range`, `search_cells`,
-   `summarize_sheet`, `suggest_formula`, `propose_edits`. Nenhuma ferramenta
-   grava em disco.
-7. **Histórico local**: `<workspace>/.chats/<slug>.json`, escrita atômica,
+   `summarize_sheet`, `suggest_formula`, `propose_edits`. `search_cells` pesquisa
+   por rótulo/coordenada em todas as abas e retorna `campos_editaveis_vizinhos`
+   (direita/abaixo/esquerda/acima). Nenhuma ferramenta grava em disco.
+7. **Antialucinação de coordenadas**: o system prompt proíbe chutar células; o
+   backend faz busca estrutural automática dos termos/refs do pedido e rejeita
+   ações cuja coordenada não tenha sido verificada por contexto, busca ou tool
+   (`coordenada_nao_verificada`).
+8. **Histórico local**: `<workspace>/.chats/<slug>.json`, escrita atômica,
    limite de mensagens e remoção recursiva de campos sensíveis.
-8. **Prompt-to-Sheet**: a IA devolve uma spec JSON validada (abas, refs, limites,
+9. **Prompt-to-Sheet**: a IA devolve uma spec JSON validada (abas, refs, limites,
    fórmulas e estilos); o Python gera um `.xlsx` real e roda o pipeline normal
    para produzir `mirror.json` e `template.xlsx`.
-9. **Contexto compacto**: modos `selection`, `sheet` e `project`; limite de 400
-   células, apenas estilos usados e aviso explícito de truncamento.
-10. **Hardening**: base URL só `http/https`, allowlist opcional por env, limite
+10. **Contexto compacto**: modos `selection`, `sheet` e `project`; limite de 400
+    células, apenas estilos usados e aviso explícito de truncamento.
+11. **Hardening**: base URL só `http/https`, allowlist opcional por env, limite
     de resposta (4 MB), rate limit em memória, redaction de chaves em erros e
     sanitização de HTML no frontend (`textContent`/`escapeHtml`).
 
@@ -241,7 +246,7 @@ web/chat.js          # UI de configuração, chat, SSE e aplicação de ediçõe
 
 ### Resultado
 
-- 165 testes passando (101 originais + 64 novos), sem chamadas de rede reais.
+- 171 testes passando (101 originais + 70 novos), sem chamadas de rede reais.
 - Exportação `.xlsx` existente permanece inalterada.
 - Versão do pacote: `0.2.0`.
 

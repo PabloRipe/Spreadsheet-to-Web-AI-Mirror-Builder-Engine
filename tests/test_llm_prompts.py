@@ -17,6 +17,9 @@ def test_build_edit_prompt_injects_context():
     assert "editavel" in prompt
     assert '"abas":[{"nome":"Vendas"}]' in prompt
     assert "acoes" in prompt
+    assert "NUNCA chute coordenadas de células" in prompt
+    assert "search_cells" in prompt
+    assert "campos_editaveis_vizinhos" in prompt
 
 
 def test_build_create_prompt():

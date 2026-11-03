@@ -26,15 +26,20 @@ TOOL_SCHEMAS: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "search_cells",
-        "description": "Busca texto em valores/fórmulas de uma aba.",
+        "description": (
+            "Busca um termo (rótulo/campo) ou uma coordenada no espelho e retorna "
+            "os campos editáveis vizinhos (direita/abaixo/esquerda/acima). Obrigatória "
+            "antes de propor edições quando a coordenada não é conhecida com certeza. "
+            "Se 'sheet' for omitida, pesquisa em todas as abas."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
-                "sheet": {"type": "string"},
-                "query": {"type": "string"},
+                "sheet": {"type": "string", "description": "Opcional; omitir busca em todas as abas."},
+                "query": {"type": "string", "description": "Texto do rótulo/campo ou coordenada (ex.: 'Faturamento Anual' ou 'B7')."},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 50},
             },
-            "required": ["sheet", "query"],
+            "required": ["query"],
         },
     },
     {
@@ -313,32 +318,216 @@ def read_range(
     return {"sheet": sheet, "range": range_text, "cells": cells, "truncated": len(cells) >= limit}
 
 
+_NEIGHBOR_DIRECTIONS = (
+    (0, 1, "direita"),
+    (1, 0, "abaixo"),
+    (0, -1, "esquerda"),
+    (-1, 0, "acima"),
+)
+
+
+def _gap_editable(
+    document: Mapping[str, Any],
+    sheet: Mapping[str, Any],
+    row: int,
+    col: int,
+) -> bool:
+    config = _config(document)
+    header_rows = {int(item) for item in (config.get("header_rows") or []) if str(item).isdigit()}
+    header_cols = {int(item) for item in (config.get("header_cols") or []) if str(item).isdigit()}
+    if row in header_rows or col in header_cols:
+        return False
+    if config.get("treat_no_fill_as_editable", True) is False:
+        return False
+    max_row = int(sheet.get("max_row") or 0)
+    max_col = int(sheet.get("max_col") or 0)
+    if max_row and row > max_row:
+        return False
+    if max_col and col > max_col:
+        return False
+    return True
+
+
+def _editable_neighbors(
+    document: Mapping[str, Any],
+    sheet_name: str,
+    sheet: Mapping[str, Any],
+    row: int,
+    col: int,
+) -> list[dict[str, Any]]:
+    """Campos editáveis adjacentes a um rótulo (prioriza direita e abaixo)."""
+    cell_map = _cells(sheet)
+    covered = _covered(sheet)
+    max_row = int(sheet.get("max_row") or 0)
+    max_col = int(sheet.get("max_col") or 0)
+    neighbours: list[dict[str, Any]] = []
+    for delta_row, delta_col, direction in _NEIGHBOR_DIRECTIONS:
+        new_row, new_col = row + delta_row, col + delta_col
+        if new_row < 1 or new_col < 1:
+            continue
+        if max_row and new_row > max_row:
+            continue
+        if max_col and new_col > max_col:
+            continue
+        ref = f"{get_column_letter(new_col)}{new_row}"
+        if ref in covered:
+            continue
+        cell = cell_map.get(ref)
+        if cell is not None:
+            if cell.get("editavel") is not True:
+                continue
+            neighbours.append(
+                {
+                    "aba": sheet_name,
+                    "ref": ref,
+                    "direcao": direction,
+                    "valor_atual": cell.get("value"),
+                    "tipo": cell.get("value_type"),
+                    "editavel": True,
+                }
+            )
+        elif _gap_editable(document, sheet, new_row, new_col):
+            neighbours.append(
+                {
+                    "aba": sheet_name,
+                    "ref": ref,
+                    "direcao": direction,
+                    "valor_atual": None,
+                    "tipo": "null",
+                    "editavel": True,
+                }
+            )
+    return neighbours
+
+
+def _ref_match(
+    document: Mapping[str, Any],
+    sheet_name: str,
+    sheet: Mapping[str, Any],
+    ref: str,
+) -> dict[str, Any] | None:
+    parsed = parse_ref(ref)
+    if parsed is None:
+        return None
+    row, col = parsed
+    covered = _covered(sheet)
+    if ref in covered:
+        return {
+            "aba": sheet_name,
+            "ref": ref,
+            "valor": None,
+            "formula": None,
+            "editavel": False,
+            "motivo": "mesclada_nao_ancora",
+            "campos_editaveis_vizinhos": [],
+        }
+    cell = _cells(sheet).get(ref)
+    if cell is not None:
+        return {
+            "aba": sheet_name,
+            "ref": ref,
+            "valor": cell.get("value"),
+            "formula": cell.get("formula"),
+            "editavel": bool(cell.get("editavel")),
+            "campos_editaveis_vizinhos": _editable_neighbors(
+                document, sheet_name, sheet, row, col
+            ),
+        }
+    editable = _gap_editable(document, sheet, row, col)
+    return {
+        "aba": sheet_name,
+        "ref": ref,
+        "valor": None,
+        "formula": None,
+        "editavel": editable,
+        "motivo": "celula_vazia_editavel" if editable else "celula_vazia_fixa",
+        "campos_editaveis_vizinhos": (
+            _editable_neighbors(document, sheet_name, sheet, row, col) if editable else []
+        ),
+    }
+
+
 def search_cells(
     document: Mapping[str, Any],
-    sheet: str,
+    sheet: str | None,
     query: str,
     *,
     limit: int = 20,
 ) -> dict[str, Any]:
+    """Busca texto ou coordenada e retorna candidatos + vizinhos editáveis.
+
+    ``sheet`` vazio/``None`` pesquisa em todas as abas. Esta é a ferramenta de
+    ancoragem estrutural: o agente deve usá-la antes de propor coordenadas que
+    não estejam explícitas no contexto.
+    """
     sheets = _sheets(document)
-    if sheet not in sheets:
-        raise ValueError(f"Aba inexistente: {sheet}")
-    needle = str(query or "").strip().lower()
-    if not needle:
-        return {"sheet": sheet, "query": query, "matches": []}
+    if sheet:
+        if sheet not in sheets:
+            raise ValueError(f"Aba inexistente: {sheet}")
+        target_sheets = [(sheet, sheets[sheet])]
+    else:
+        target_sheets = list(sheets.items())
+
+    raw_query = str(query or "").strip()
+    needle = raw_query.lower()
+    normalized_ref = raw_query.replace("$", "").upper()
+    max_results = max(1, int(limit or 20))
+    as_ref = bool(REF_RE.fullmatch(normalized_ref))
+
+    if not raw_query:
+        return {"sheet": sheet or None, "query": query, "matches": [], "abas_pesquisadas": []}
+
     matches: list[dict[str, Any]] = []
-    for ref, cell in sorted(_cells(sheets[sheet]).items()):
-        haystack = f"{cell.get('value') or ''} {cell.get('formula') or ''}".lower()
-        if needle in haystack and len(matches) < max(1, int(limit or 20)):
+    for sheet_name, sheet_data in target_sheets:
+        if as_ref:
+            match = _ref_match(document, sheet_name, sheet_data, normalized_ref)
+            if match is not None:
+                matches.append(match)
+            continue
+        for ref, cell in sorted(_cells(sheet_data).items()):
+            haystack = f"{cell.get('value') or ''} {cell.get('formula') or ''}".lower()
+            if needle not in haystack:
+                continue
+            parsed = parse_ref(ref)
+            neighbours = (
+                _editable_neighbors(document, sheet_name, sheet_data, parsed[0], parsed[1])
+                if parsed
+                else []
+            )
             matches.append(
                 {
+                    "aba": sheet_name,
                     "ref": ref,
                     "valor": cell.get("value"),
                     "formula": cell.get("formula"),
                     "editavel": bool(cell.get("editavel")),
+                    "campos_editaveis_vizinhos": neighbours,
                 }
             )
-    return {"sheet": sheet, "query": query, "matches": matches}
+            if len(matches) >= max_results:
+                break
+        if len(matches) >= max_results:
+            break
+
+    matches.sort(
+        key=lambda item: (
+            0 if item.get("campos_editaveis_vizinhos") else 1,
+            str(item.get("aba") or ""),
+            (parse_ref(str(item.get("ref") or "")) or (0, 0))[0],
+            (parse_ref(str(item.get("ref") or "")) or (0, 0))[1],
+        )
+    )
+    matches = matches[:max_results]
+    return {
+        "sheet": sheet or None,
+        "query": query,
+        "matches": matches,
+        "abas_pesquisadas": [name for name, _ in target_sheets],
+        "orientacao": (
+            "Use 'campos_editaveis_vizinhos' para localizar o campo de valor. "
+            "Rótulos geralmente são fixos; o campo editável costuma estar à direita ou abaixo."
+        ),
+    }
 
 
 def summarize_sheet(document: Mapping[str, Any], sheet: str) -> dict[str, Any]:

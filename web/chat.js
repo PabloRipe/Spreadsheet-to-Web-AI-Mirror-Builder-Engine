@@ -25,6 +25,7 @@
     fora_dimensao: 'fora da dimensão da aba',
     formula_em_celula_vazia: 'fórmula em célula vazia',
     celula_com_formula_fixa: 'fórmula em célula fixa',
+    coordenada_nao_verificada: 'coordenada não confirmada por busca estrutural',
   };
 
   const state = {

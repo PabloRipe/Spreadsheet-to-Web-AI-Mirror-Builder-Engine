@@ -159,6 +159,46 @@ def test_chat_executes_tool_calls_before_final_answer(tmp_path: Path):
     assert provider.requests[1].tools is None
 
 
+def test_chat_rejects_unverified_gap_coordinate(tmp_path: Path):
+    provider = FakeProvider(
+        _config(),
+        [ChatResponse(text='{"acoes": [{"aba": "Vendas", "coordenada": "C5", "novo_valor": 99}]}')],
+    )
+    service = ChatService(
+        _document(), project_slug="vendas", provider_factory=lambda config: provider
+    )
+    result = service.chat(message="Coloque o resultado", provider_config=_config(), sheet="Vendas")
+    assert result["aplicaveis"] == {}
+    assert any(item["motivo"] == "coordenada_nao_verificada" for item in result["rejeitadas"])
+
+
+def test_chat_auto_search_grounds_label_and_neighbors(tmp_path: Path):
+    provider = FakeProvider(_config(), [ChatResponse(text='{"acoes": []}')])
+    service = ChatService(
+        _document(), project_slug="vendas", provider_factory=lambda config: provider
+    )
+    result = service.chat(message="Preencha o item", provider_config=_config(), sheet="Vendas")
+    assert result["busca_estrutural"]["termos"]
+    assert result["busca_estrutural"]["resultados"] >= 1
+    prompt = provider.requests[0].system_prompt
+    assert "busca_por_termos" in prompt
+    assert "campos_editaveis_vizinhos" in prompt
+    assert '"B3"' in prompt
+
+
+def test_chat_explicit_gap_coordinate_is_verified(tmp_path: Path):
+    provider = FakeProvider(
+        _config(),
+        [ChatResponse(text='{"acoes": [{"aba": "Vendas", "coordenada": "C5", "novo_valor": 99}]}')],
+    )
+    service = ChatService(
+        _document(), project_slug="vendas", provider_factory=lambda config: provider
+    )
+    result = service.chat(message="Preencha C5", provider_config=_config(), sheet="Vendas")
+    assert result["aplicaveis"] == {"Vendas": {"C5": 99}}
+    assert result["busca_estrutural"]["termos"][0] == "C5"
+
+
 def test_chat_rejects_empty_message_and_invalid_provider_factory(tmp_path: Path):
     service = ChatService(_document(), project_slug="p")
     with pytest.raises(ValueError):

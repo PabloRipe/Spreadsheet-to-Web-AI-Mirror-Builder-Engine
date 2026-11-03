@@ -4,7 +4,7 @@
 > Última atualização: 2026-11-02.
 > Repositório: https://github.com/PabloRipe/Spreadsheet-to-Web-AI-Mirror-Builder-Engine
 > Branch: `main` · Status geral: **Fase 1 e Fase 2 concluídas** (espelho + web + Multi-LLM + chat + Prompt-to-Sheet).
-> Versão do pacote: `0.2.0` · Suíte: **165 testes passando**.
+> Versão do pacote: `0.2.0` · Suíte: **171 testes passando**.
 
 ---
 
@@ -12,7 +12,7 @@
 
 1. Leia este arquivo antes de alterar qualquer código.
 2. Leia também `PLAN.md` (decisões originais de arquitetura) e `README.md` (instalação/uso).
-3. Rode a suíte antes de começar: `python -m pytest -q` — estado atual: **165 testes passando**.
+3. Rode a suíte antes de começar: `python -m pytest -q` — estado atual: **171 testes passando**.
 4. Não quebre o contrato JSON existente (`schema_version: "1.0.0"`). Campos novos só podem ser **opcionais e retrocompatíveis**.
 5. Mantenha o estilo atual: Python 3.9+, dataclasses, `from __future__ import annotations`, sem dependências desnecessárias.
 6. Não coloque chaves de API, segredos ou dados sensíveis no repositório, em logs ou em respostas HTTP.
@@ -50,7 +50,7 @@ A **Fase 2** adiciona inteligência: Multi-LLM, chaves de API locais e chat inte
 | Planilhas | `openpyxl >= 3.1` | Leitura em duas cargas: fórmulas e valores em cache |
 | Web server | `Flask >= 3.0` | `server.py`, sem framework JS |
 | Produção local | `waitress >= 3.0` | Opcional (`Procfile`/`README`) |
-| Testes | `pytest >= 8` | 165 testes passando |
+| Testes | `pytest >= 8` | 171 testes passando |
 | LLM | `httpx >= 0.27` | Adaptadores diretos, streaming SSE, sem SDK pesado |
 | Frontend | HTML5 + Tailwind CSS via CDN | `https://cdn.tailwindcss.com`, sem build Node |
 | Frontend JS | JavaScript puro (Vanilla JS) | `web/app.js`, `web/chat.js`, `web/index.html`, `web/styles.css` |
@@ -111,7 +111,7 @@ sps_to_web/
 │       ├── chat_store.py     # histórico por projeto em .chats/<slug>.json
 │       ├── service.py        # ChatService (chat, SSE, Prompt-to-Sheet)
 │       └── creation.py       # spec JSON -> .xlsx -> pipeline
-├── tests/                    # 165 testes (pytest)
+├── tests/                    # 171 testes (pytest)
 │   ├── conftest.py
 │   ├── test_colors.py
 │   ├── test_styles.py
@@ -606,7 +606,7 @@ Configuração pode ser sobrescrita por JSON via `--config` na CLI ou por flags 
   - streaming SSE e histórico por projeto;
   - aplicação de edições somente em células editáveis;
   - Prompt-to-Sheet com validação e geração de `.xlsx` real.
-- **Testes**: **165 testes passando** (`python -m pytest -q`).
+- **Testes**: **171 testes passando** (`python -m pytest -q`).
 
 ### 7.2 API HTTP existente
 
@@ -662,7 +662,7 @@ Variáveis de ambiente: `PORT` (padrão `5000`), `MIRROR_WORKSPACE` (padrão `mi
 
 > Escopo: **Módulo Multi-LLM**, **chaves locais no navegador**, **Chat Integrado** e
 > **Prompt-to-Sheet**. Tudo abaixo foi implementado e coberto por testes.
-> A suíte final tem **165 testes verdes**.
+> A suíte final tem **171 testes verdes**.
 
 ### Princípios adotados
 
@@ -914,7 +914,7 @@ web/styles.css        # estilos auxiliares
 
 **Critérios de aceitação:**
 
-- `python -m pytest -q` verde (**165 testes**).
+- `python -m pytest -q` verde (**171 testes**).
 - Nenhum segredo no repositório (`git grep` por padrões de chave).
 - Documentação cobre instalação, configuração de provedores, uso do chat e limitações.
 
@@ -956,6 +956,12 @@ web/styles.css        # estilos auxiliares
 13. **Streaming via SSE** com fallback para resposta completa.
 14. **Prompt-to-Sheet**: spec JSON validada → openpyxl → pipeline normal.
 15. **Histórico de chat local** em `<workspace>/.chats/<slug>.json`, sem credenciais.
+16. **Antialucinação de coordenadas**: o system prompt proíbe chutar células;
+    `search_cells` aceita rótulo ou coordenada, pesquisa em todas as abas quando
+    `sheet` é omitido e retorna `campos_editaveis_vizinhos`.
+17. **Busca estrutural automática + evidência**: antes de chamar o LLM, o serviço
+    busca termos/refs do pedido; toda action precisa estar em `evidence`
+    (contexto, busca ou tool) senão é rejeitada como `coordenada_nao_verificada`.
 
 ---
 
@@ -974,6 +980,8 @@ web/styles.css        # estilos auxiliares
 - **SSE**: use `stream_with_context`; erros dentro do gerador viram evento `{"type":"error"}` com a chave redigida.
 - **Prompt-to-Sheet**: valide refs/limites antes de criar células; fórmulas devem começar com `=`; nunca aceitar `dict`/`list` como valor de célula.
 - **Chat apply**: `chat/apply` revalida contra `mirror.json`; não confie apenas no frontend.
+- **Coordenadas alucinadas**: `coordenada_nao_verificada` significa que a célula não apareceu no contexto, na busca automática nem em tool call. Rótulos fixos devem ser ligados ao vizinho editável via `campos_editaveis_vizinhos` (direita/abaixo).
+- **Busca**: `search_cells(document, None, termo)` pesquisa todas as abas; com `sheet` inexistente ainda levanta `ValueError`.
 - **Histórico**: `.chats/<slug>.json` usa escrita atômica (`os.replace`); não gravar payload de provedor com chave.
 - **Windows/PowerShell**: o ambiente atual é Windows; cuidado com `LF`/`CRLF` e caminhos.
 
@@ -982,7 +990,7 @@ web/styles.css        # estilos auxiliares
 ## 11. Checklist para retomar a implementação
 
 - [x] Ler `CONTEXT_RESTORE.md`, `PLAN.md` e `README.md`.
-- [x] Rodar `python -m pytest -q` e confirmar 165 testes verdes.
+- [x] Rodar `python -m pytest -q` e confirmar 171 testes verdes.
 - [x] Confirmar que o contrato JSON não foi quebrado (`schema_version` 1.0.0).
 - [x] Implementar F2.1 (config stateless + chaves no sessionStorage) com testes.
 - [x] Implementar F2.2 (multi-LLM) com testes usando mock.

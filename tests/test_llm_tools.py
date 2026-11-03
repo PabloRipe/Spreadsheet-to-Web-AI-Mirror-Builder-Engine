@@ -137,6 +137,64 @@ def test_propose_edits_is_pure_and_normalizes():
     assert document == snapshot
 
 
+def test_search_cells_returns_editable_neighbors_for_labels():
+    document = _document()
+    result = search_cells(document, "Vendas", "Item")
+    match = result["matches"][0]
+    assert match["aba"] == "Vendas"
+    assert match["ref"] == "A3"
+    neighbor_refs = {item["ref"] for item in match["campos_editaveis_vizinhos"]}
+    assert "B3" in neighbor_refs
+    directions = {item["direcao"] for item in match["campos_editaveis_vizinhos"] if item["ref"] == "B3"}
+    assert "direita" in directions
+    assert "orientacao" in result
+
+
+def test_search_cells_without_sheet_searches_all_tabs():
+    document = _document()
+    document["sheets"].append(
+        {
+            "name": "Entradas",
+            "state": "visible",
+            "max_row": 3,
+            "max_col": 2,
+            "merged_ranges": [],
+            "cells": [
+                {
+                    "ref": "A1",
+                    "row": 1,
+                    "col": 1,
+                    "value": "Faturamento Anual",
+                    "value_type": "string",
+                    "editavel": False,
+                    "style": "s0",
+                }
+            ],
+        }
+    )
+    result = search_cells(document, None, "faturamento")
+    assert result["abas_pesquisadas"] == ["Vendas", "Entradas"]
+    match = result["matches"][0]
+    assert match["aba"] == "Entradas"
+    assert match["ref"] == "A1"
+    neighbor_refs = {item["ref"] for item in match["campos_editaveis_vizinhos"]}
+    assert "B1" in neighbor_refs
+
+
+def test_search_cells_by_coordinate_includes_empty_editable_cell():
+    document = _document()
+    result = search_cells(document, None, "c5")
+    match = result["matches"][0]
+    assert match["aba"] == "Vendas"
+    assert match["ref"] == "C5"
+    assert match["editavel"] is True
+    assert match["motivo"] == "celula_vazia_editavel"
+    assert match["campos_editaveis_vizinhos"]
+
+    fixed = search_cells(document, "Vendas", "A1")
+    assert fixed["matches"][0]["editavel"] is False
+
+
 def test_read_range_search_and_summary():
     document = _document()
     result = read_range(document, "Vendas", "A2:C4", draft={"A3": "Rascunho"})
